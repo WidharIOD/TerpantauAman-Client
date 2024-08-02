@@ -58,7 +58,7 @@ const Section2 = () => {
 
   return (
     <div>
-      <h1>Metrics</h1>
+      <h1>Choose Metrics</h1>
       <p>You can only select one option:</p>
 
       <form>
