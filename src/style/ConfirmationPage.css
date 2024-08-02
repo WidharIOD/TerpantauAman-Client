@@ -1,0 +1,59 @@
+/* ConfirmationPage.css */
+
+.report-table {
+    border-collapse: collapse; /* Collapse borders into single lines */
+    width: 100%; /* Make the table take up full width */
+    margin-top: 20px; /* Add some spacing above the table */
+  }
+  
+  .report-table th, .report-table td {
+    text-align: left; /* Align text to the left */
+    padding: 8px; /* Add padding to cells */
+    border: 1px solid #ddd; /* Add borders to cells */
+  }
+  
+  .report-table tr:nth-child(even) {
+    background-color: #f2f2f2; /* Add alternating row colors */
+  }
+  
+  .report-table tr:hover {
+    background-color: #ddd; /* Add hover effect to rows */
+  }
+  
+  .report-table th {
+    background-color: #4CAF50; /* Add color to header cells */
+    color: white;
+  }
+  
+  .actions-cell {
+    text-align: center;
+  }
+
+  h1 {
+    text-align: center; /* Center the main title */
+    margin-bottom: 30px; /* Add some spacing below the title */
+  }
+  
+  button {
+    background-color: #4CAF50; /* Green background */
+    border: none; /* No border */
+    color: white; /* White text */
+    padding: 10px 20px; /* Padding inside the button */
+    text-align: center; /* Center text */
+    text-decoration: none; /* No underline */
+    display: inline-block; /* Display as a block element */
+    font-size:   
+   16px; /* Font size */
+    margin: 10px 0; /* Margin above and below the button */
+    cursor: pointer; /* Change cursor to pointer on hover */
+    border-radius: 5px; /* Add rounded corners */
+  }
+  
+  button:hover {
+    background-color: #3e8e41; /* Darker green on hover */
+  }
+  
+  button:disabled {
+    background-color: #ccc; /* Grayed out when disabled */
+    cursor: not-allowed; /* Change cursor to not-allowed when disabled */
+  }
