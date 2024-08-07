@@ -1,23 +1,32 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
-import db from "../firebaseConfig";
+import { db } from "../firebaseConfig";
 
 const Section3 = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
   // Retrieve values from previous steps
-  const { dimensions, metric, isEditing, reportName } = location.state || {};
+  const {
+    dimensions,
+    metric,
+    isEditing,
+    reportName,
+    id: reportId, // Get reportId
+    resultId: resultId,
+  } = location.state || {};
 
   // State to manage the selected refresh time
   const [selectedRefreshTime, setSelectedRefreshTime] = useState("5 minutes"); // Default to 5 minutes
 
+  console.log(location.state);
+
   useEffect(() => {
-    if (isEditing && reportName) {
+    if (isEditing && reportId) {
       const fetchData = async () => {
         try {
-          const docRef = doc(db, "Live Report", reportName);
+          const docRef = doc(db, "Live Report", reportId);
           const docSnap = await getDoc(docRef);
 
           if (docSnap.exists()) {
@@ -33,7 +42,7 @@ const Section3 = () => {
 
       fetchData();
     }
-  }, [isEditing, reportName]);
+  }, [isEditing, reportId]); // Dependency array includes reportId
 
   // Handle radio button change
   const handleRefreshTimeChange = (event) => {
@@ -45,11 +54,15 @@ const Section3 = () => {
     if (selectedRefreshTime) {
       navigate("/userinfo", {
         state: {
-          dimensions,
-          metric,
+          // dimensions,
+          // metric,
+          // refreshTime: selectedRefreshTime,
+          // reportName, // Pass reportName along (cannot be changed)
+          // isEditing,
+          // id,
+          ...location.state,
           refreshTime: selectedRefreshTime,
-          reportName, // Pass reportName along (cannot be changed)
-          isEditing,
+          resultId,
         },
       });
     } else {

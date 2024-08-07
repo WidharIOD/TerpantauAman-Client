@@ -1,98 +1,12 @@
 // import React, { useEffect, useState } from "react";
 // import { useLocation } from "react-router-dom";
-
-// const FinalPage = () => {
-//   const location = useLocation();
-//   const { section1Values, section2Value, section3Value } = location.state;
-
-//   // State to store the data fetched from the server
-//   const [queryResults, setQueryResults] = useState(null);
-
-//   const metricAliases = {
-//     totalUsers: "total_users",
-//     revenue: "total_revenue",
-//     eventCount: "total_events",
-//     views: "total_views",
-//   };
-
-//   useEffect(() => {
-//     if (!section2Value) return; // Don't fetch if metric is not selected
-
-//     const fetchData = async () => {
-//       try {
-//         const response = await fetch("http://localhost:3001/query-bigquery", {
-//           method: "POST",
-//           headers: { "Content-Type": "application/json" },
-//           body: JSON.stringify({
-//             dimensions: section1Values, // Already an array
-//             metric: section2Value,
-//             refreshTime: section3Value,
-//           }),
-//         });
-
-//         const data = await response.json();
-//         setQueryResults(data); // Update state with the fetched data
-//       } catch (error) {
-//         console.error("Error fetching data:", error);
-//         // Handle errors appropriately
-//       }
-//     };
-
-//     fetchData();
-//   }, [section1Values, section2Value, section3Value]);
-
-//   return (
-//     <div>
-//       <h1>Final Page</h1>
-
-//       <h2>Query Results:</h2>
-
-//       {/* Table for displaying results */}
-//       {queryResults && queryResults.length > 0 ? (
-//         <table>
-//           <thead>
-//             <tr>
-//               {/* Dynamically create table headers */}
-//               {section1Values.map((dimension) => (
-//                 <th key={dimension}>{dimension}</th>
-//               ))}
-//               <th>{metricAliases[section2Value]}</th>{" "}
-//               {/* Use metric alias here */}
-//             </tr>
-//           </thead>
-//           <tbody>
-//             {queryResults.map((row, rowIndex) => (
-//               <tr key={rowIndex}>
-//                 {/* Dynamically render table cells */}
-//                 {section1Values.map((dimension) => (
-//                   <td key={`${rowIndex}-${dimension}`}>{row[dimension]}</td>
-//                 ))}
-//                 <td>{row[metricAliases[section2Value]]}</td>{" "}
-//                 {/* Use metric alias here */}
-//               </tr>
-//             ))}
-//           </tbody>
-//         </table>
-//       ) : (
-//         <p>{queryResults ? "No data found." : "Loading data..."}</p>
-//       )}
-
-//       {/* ... (display other selections as before) ... */}
-//     </div>
-//   );
-// };
-
-// export default FinalPage;
-
-// import React, { useEffect, useState } from "react";
-// import { useLocation } from "react-router-dom";
 // import { doc, getDoc, setDoc } from "firebase/firestore";
 // import db from "../firebaseConfig";
 // import "../style/ConfirmationPage.css";
 
 // const FinalPage = () => {
 //   const location = useLocation();
-//   const { reportName } = location.state; // Get reportName from previous page
+//   const { reportId, resultId, reportName } = location.state;
 
 //   const [data, setData] = useState({
 //     dimensions: [],
@@ -100,6 +14,7 @@
 //     refreshTime: "",
 //     queryResults: null,
 //     timestamp: null,
+//     dateLastRun: null,
 //   });
 
 //   const metricAliases = {
@@ -112,14 +27,15 @@
 //   useEffect(() => {
 //     const fetchData = async () => {
 //       try {
-//         const docRef = doc(db, "Live Report", reportName);
-//         const docSnap = await getDoc(docRef);
+//         // Fetch the "Live Report" document to get the latest dateLastRun
+//         const liveReportDocRef = doc(db, "Live Report", reportId);
+//         const liveReportDocSnap = await getDoc(liveReportDocRef);
 
-//         if (docSnap.exists()) {
-//           const firestoreData = docSnap.data();
-
-//           const savedTime = new Date(firestoreData.timestamp);
-//           const formattedSavedTime = savedTime.toLocaleString("en-GB", {
+//         if (liveReportDocSnap.exists()) {
+//           const liveReportData = liveReportDocSnap.data();
+//           const formattedLastRunTime = new Date(
+//             liveReportData.dateLastRun
+//           ).toLocaleString("en-GB", {
 //             day: "2-digit",
 //             month: "2-digit",
 //             year: "numeric",
@@ -129,74 +45,34 @@
 //             hour12: false,
 //           });
 
-//           const lastRunTime = new Date(firestoreData.dateLastRun || 0); // Default to 0 if not set
-//           const formattedLastRunTime = lastRunTime.toLocaleString("en-GB", {
-//             day: "2-digit",
-//             month: "2-digit",
-//             year: "numeric",
-//             hour: "2-digit",
-//             minute: "2-digit",
-//             second: "2-digit",
-//             hour12: false,
-//           });
+//           // Fetch data from "Report Result" collection using resultId
+//           const resultDocRef = doc(db, "Report Result", resultId);
+//           const resultDocSnap = await getDoc(resultDocRef);
 
-//           const currentTime = new Date();
-//           const refreshTimeInMinutes = parseInt(
-//             firestoreData.refreshTime.split(" ")[0]
-//           );
+//           if (resultDocSnap.exists()) {
+//             const resultData = resultDocSnap.data();
 
-//           const timeDifference = (currentTime - savedTime) / (1000 * 60);
-//           const timeSinceLastRun = (currentTime - lastRunTime) / (1000 * 60);
-
-//           if (
-//             timeDifference <= refreshTimeInMinutes &&
-//             timeSinceLastRun <= refreshTimeInMinutes
-//           ) {
-//             // Data is still fresh, use it directly from Firestore
-//             setData({
-//               ...firestoreData, // Use all data from Firestore
-//             });
-//           } else {
-//             // Data is stale or hasn't been run recently, fetch from BigQuery
-//             const dimensions = firestoreData.dimensions || [];
-//             const metric = firestoreData.metric || null;
-//             const refreshTime = firestoreData.refreshTime || "";
-
-//             const bqResponse = await fetch(
-//               "http://localhost:3001/query-bigquery",
-//               {
-//                 method: "POST",
-//                 headers: { "Content-Type": "application/json" },
-//                 body: JSON.stringify({
-//                   dimensions,
-//                   metric,
-//                   refreshTime,
-//                 }),
-//               }
+//             const firstResult = resultData.results[0];
+//             const dimensions = Object.keys(firstResult).filter(
+//               (key) => key !== metricAliases[resultData.metric]
 //             );
-
-//             const bigqueryData = await bqResponse.json();
-
-//             // Update Firestore with new results, timestamp, and dateLastRun
-//             await setDoc(docRef, {
-//               ...firestoreData,
-//               results: bigqueryData,
-//               // timestamp: formattedSavedTime, // Already in the desired format
-//               dateLastRun: formattedLastRunTime,
-//             });
+//             const metric = resultData.metric || null;
+//             const refreshTime = resultData.refreshTime || "";
 
 //             setData({
 //               dimensions,
 //               metric,
 //               refreshTime,
-//               queryResults: bigqueryData,
-//               // timestamp: formattedSavedTime,
-//               dateLastRun: formattedLastRunTime,
+//               queryResults: resultData.results || null,
+//               timestamp: resultData.timestamp,
+//               dateLastRun: formattedLastRunTime, // Use the latest dateLastRun from "Live Report"
+//               reportName: reportName,
 //             });
+//           } else {
+//             console.log("No results found for this report!");
 //           }
 //         } else {
 //           console.log("No such document!");
-//           // Handle the case where the document doesn't exist
 //         }
 //       } catch (error) {
 //         console.error("Error fetching data:", error);
@@ -204,17 +80,146 @@
 //     };
 
 //     fetchData();
-//   }, [reportName]);
+//   }, [reportId, resultId, reportName]); // Re-fetch if reportName or resultId changes
 
-import React, { useEffect, useState } from "react";
+//   // useEffect(() => {
+//   //   const fetchData = async () => {
+//   //     try {
+//   //       // Fetch the document from Firestore to get dimensions and metric
+//   //       const docRef = doc(db, "Live Report", reportName);
+//   //       const docSnap = await getDoc(docRef);
+
+//   //       if (docSnap.exists()) {
+//   //         const firestoreData = docSnap.data();
+
+//   //         const dimensions = firestoreData.dimensions || [];
+//   //         const metric = firestoreData.metric || null;
+//   //         const refreshTime = firestoreData.refreshTime || "";
+
+//   //         // Always fetch from BigQuery
+//   //         const bqResponse = await fetch(
+//   //           "http://localhost:3001/query-bigquery",
+//   //           {
+//   //             method: "POST",
+//   //             headers: { "Content-Type": "application/json" },
+//   //             body: JSON.stringify({
+//   //               dimensions,
+//   //               metric,
+//   //               refreshTime,
+//   //             }),
+//   //           }
+//   //         );
+
+//   //         const bigqueryData = await bqResponse.json();
+
+//   //         // Get the current date and time in the desired format
+//   //         const currentDateTime = new Date().toLocaleString("en-GB", {
+//   //           day: "2-digit",
+//   //           month: "2-digit",
+//   //           year: "numeric",
+//   //           hour: "2-digit",
+//   //           minute: "2-digit",
+//   //           second: "2-digit",
+//   //           hour12: false,
+//   //         });
+
+//   //         // Update Firestore with the new dateLastRun
+//   //         await setDoc(
+//   //           docRef,
+//   //           {
+//   //             ...firestoreData,
+//   //             dateLastRun: currentDateTime,
+//   //           },
+//   //           { merge: true }
+//   //         ); // Use merge to only update the dateLastRun field
+
+//   //         setData({
+//   //           dimensions,
+//   //           metric,
+//   //           refreshTime,
+//   //           queryResults: bigqueryData,
+//   //           timestamp: firestoreData.timestamp, // Keep the original timestamp
+//   //           dateLastRun: currentDateTime,
+//   //         });
+//   //       } else {
+//   //         console.log("No such document!");
+//   //         // Handle the case where the document doesn't exist
+//   //       }
+//   //     } catch (error) {
+//   //       console.error("Error fetching data:", error);
+//   //     }
+//   //   };
+
+//   //   fetchData();
+//   // }, [reportName]);
+
+//   return (
+//     <div>
+//       <h1>Final Page</h1>
+//       <h2>{data.reportName}'s Report</h2>
+//       <h2>Query Results:</h2>
+
+//       {data.queryResults && data.queryResults.length > 0 ? (
+//         <div>
+//           <p>Last Updated: {data.dateLastRun}</p>
+//           <table className="report-table">
+//             <thead>
+//               <tr>
+//                 {/* Sort the keys to ensure dimensions come first, then metric */}
+//                 {Object.keys(data.queryResults[0])
+//                   .sort((a, b) => {
+//                     if (a === metricAliases[data.metric]) return 1; // Metric comes last
+//                     if (b === metricAliases[data.metric]) return -1;
+//                     return a.localeCompare(b); // Sort dimensions alphabetically
+//                   })
+//                   .map((key) => (
+//                     <th key={key}>{key}</th>
+//                   ))}
+//               </tr>
+//             </thead>
+//             <tbody>
+//               {data.queryResults.map((row, rowIndex) => (
+//                 <tr key={rowIndex}>
+//                   {/* Render cells in the same order as the headers */}
+//                   {Object.keys(data.queryResults[0])
+//                     .sort((a, b) => {
+//                       if (a === metricAliases[data.metric]) return 1;
+//                       if (b === metricAliases[data.metric]) return -1;
+//                       return a.localeCompare(b);
+//                     })
+//                     .map((key) => (
+//                       <td key={`${rowIndex}-${key}`}>{row[key]}</td>
+//                     ))}
+//                 </tr>
+//               ))}
+//             </tbody>
+//           </table>
+//         </div>
+//       ) : (
+//         <p>{data.queryResults ? "No data found." : "Loading data..."}</p>
+//       )}
+//     </div>
+//   );
+// };
+
+// export default FinalPage;
+
+import React, { useEffect, useState, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import db from "../firebaseConfig";
-import "../style/ConfirmationPage.css";
+import { db } from "../firebaseConfig";
+import { getAuth } from "firebase/auth";
+
+// import "../style/ConfirmationPage.css";
+import "../style/RealtimeDashboard.css";
+
+import TableRealtime from "./TableRealtime/TableRealtime";
+import SearchBar from "./SearchBar/SearchBar";
+import DataColumns from "../data/dataColums";
 
 const FinalPage = () => {
   const location = useLocation();
-  const { reportName } = location.state;
+  const { reportId, resultId, reportName } = location.state;
 
   const [data, setData] = useState({
     dimensions: [],
@@ -225,45 +230,57 @@ const FinalPage = () => {
     dateLastRun: null,
   });
 
+  const [filteredReviews, setFilteredReviews] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
   const metricAliases = {
     totalUsers: "total_users",
     revenue: "total_revenue",
     eventCount: "total_events",
     views: "total_views",
   };
+  const [projectSetupData, setProjectSetupData] = useState(null); // To store fetched project setup data
 
   useEffect(() => {
+    // Fetch project setup details from Firestore
+    const fetchProjectSetup = async () => {
+      try {
+        const user = getAuth().currentUser;
+        if (user) {
+          const userDocRef = doc(db, "users", user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const companyName = userDocSnap.data().companyName;
+            const projectSetupDocRef = doc(db, "project_setups", user.uid);
+            const projectSetupDocSnap = await getDoc(projectSetupDocRef);
+            if (projectSetupDocSnap.exists()) {
+              setProjectSetupData(projectSetupDocSnap.data());
+            } else {
+              console.log("Project setup document not found!");
+              // Handle this case appropriately (e.g., redirect to ProjectSetupPage)
+            }
+          } else {
+            console.log("User document not found!");
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching project setup:", error);
+      }
+    };
+
+    fetchProjectSetup();
+
     const fetchData = async () => {
       try {
-        // Fetch the document from Firestore to get dimensions and metric
-        const docRef = doc(db, "Live Report", reportName);
-        const docSnap = await getDoc(docRef);
+        // Fetch the "Live Report" document to get the latest dateLastRun
+        const liveReportDocRef = doc(db, "Live Report", reportId);
+        const liveReportDocSnap = await getDoc(liveReportDocRef);
 
-        if (docSnap.exists()) {
-          const firestoreData = docSnap.data();
-
-          const dimensions = firestoreData.dimensions || [];
-          const metric = firestoreData.metric || null;
-          const refreshTime = firestoreData.refreshTime || "";
-
-          // Always fetch from BigQuery
-          const bqResponse = await fetch(
-            "http://localhost:3001/query-bigquery",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                dimensions,
-                metric,
-                refreshTime,
-              }),
-            }
-          );
-
-          const bigqueryData = await bqResponse.json();
-
-          // Get the current date and time in the desired format
-          const currentDateTime = new Date().toLocaleString("en-GB", {
+        if (liveReportDocSnap.exists()) {
+          const liveReportData = liveReportDocSnap.data();
+          const formattedLastRunTime = new Date(
+            liveReportData.dateLastRun
+          ).toLocaleString("en-GB", {
             day: "2-digit",
             month: "2-digit",
             year: "numeric",
@@ -273,69 +290,191 @@ const FinalPage = () => {
             hour12: false,
           });
 
-          // Update Firestore with the new dateLastRun
-          await setDoc(
-            docRef,
-            {
-              ...firestoreData,
-              dateLastRun: currentDateTime,
-            },
-            { merge: true }
-          ); // Use merge to only update the dateLastRun field
+          // Fetch data from "Report Result" collection using resultId
+          const resultDocRef = doc(db, "Report Result", resultId);
+          const resultDocSnap = await getDoc(resultDocRef);
 
-          setData({
-            dimensions,
-            metric,
-            refreshTime,
-            queryResults: bigqueryData,
-            timestamp: firestoreData.timestamp, // Keep the original timestamp
-            dateLastRun: currentDateTime,
-          });
+          if (resultDocSnap.exists()) {
+            const resultData = resultDocSnap.data();
+
+            // Extract dimensions and metric
+            const firstResult = resultData.results[0];
+            const dimensions = Object.keys(firstResult).filter(
+              (key) => key !== metricAliases[resultData.metric]
+            );
+            const metric = resultData.metric || null;
+            const refreshTime = resultData.refreshTime || "";
+
+            setData({
+              dimensions,
+              metric,
+              refreshTime,
+              queryResults: resultData.results || null,
+              timestamp: resultData.timestamp,
+              dateLastRun: formattedLastRunTime,
+              reportName,
+            });
+
+            setFilteredReviews(resultData.results || []);
+          } else {
+            console.log("No results found for this report!");
+            // Handle the case where the "Report Result" document doesn't exist
+            // You might want to set an error state or display a message to the user
+          }
         } else {
           console.log("No such document!");
-          // Handle the case where the document doesn't exist
+          // Handle the case where the "Live Report" document doesn't exist
         }
       } catch (error) {
         console.error("Error fetching data:", error);
+        // Handle other potential errors
       }
     };
 
     fetchData();
-  }, [reportName]);
+  }, [reportId, resultId]);
+
+  // Filter and map columns based on selectedColumnIds
+  const selectedColumnIds = data.dimensions.concat([data.metric]);
+  console.log("Selected Column IDs:", selectedColumnIds); // Log for debugging
+
+  const columns = DataColumns.filter((col) =>
+    selectedColumnIds.includes(col.id)
+  ).map((col) => ({
+    ...col,
+    label: (
+      <span>
+        <i className={col.icon}></i> {col.label}
+      </span>
+    ),
+  }));
+
+  // console.log("Columns:", columns); // Log for debugging
+
+  const filterReviews = useCallback(() => {
+    let filteredData = data.queryResults || [];
+
+    if (searchQuery) {
+      const regex = new RegExp(searchQuery, "i");
+      filteredData = filteredData.filter((review) =>
+        Object.values(review).some((value) => regex.test(value))
+      );
+    }
+
+    setFilteredReviews(filteredData);
+  }, [searchQuery, data.queryResults]);
+
+  useEffect(() => {
+    filterReviews();
+  }, [filterReviews, data.queryResults]);
+
+  const handleSearchSubmit = (query) => {
+    setSearchQuery(query);
+  };
+
+  // Function to handle the "Re-query" button click
+  const handleRequery = async () => {
+    try {
+      // Fetch the latest report configuration from Firestore
+      const liveReportDocRef = doc(db, "Live Report", reportId);
+      const liveReportDocSnap = await getDoc(liveReportDocRef);
+
+      if (liveReportDocSnap.exists()) {
+        const liveReportData = liveReportDocSnap.data();
+
+        // Extract the parameters from Firestore
+        const dimensions = liveReportData.dimensions || [];
+        const metric = liveReportData.metric || null;
+        const refreshTime = liveReportData.refreshTime || "";
+
+        // Fetch fresh data from BigQuery
+
+        const bqResponse = await fetch("http://localhost:3001/query-bigquery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            dimensions,
+            metric,
+            refreshTime,
+            projectId: projectSetupData.projectId, // Include from Firestore
+            datasetId: projectSetupData.datasetId,
+            tableId: projectSetupData.tableId,
+            serviceAccount: projectSetupData.serviceAccount,
+          }),
+        });
+
+        const bigqueryData = await bqResponse.json();
+
+        console.log(bigqueryData);
+
+        // Get the current date and time
+        const currentDateTime = new Date().toLocaleString("en-GB", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        });
+
+        // Update "Report Result" with new results and timestamp
+        const resultDocRef = doc(db, "Report Result", resultId);
+        await setDoc(
+          resultDocRef,
+          {
+            results: bigqueryData,
+            timestamp: currentDateTime,
+            dateLastRun: currentDateTime,
+          },
+          { merge: true }
+        );
+
+        // Update "Live Report" with new dateLastRun
+        const liveReportDocRef = doc(db, "Live Report", reportId);
+        await setDoc(
+          liveReportDocRef,
+          { dateLastRun: currentDateTime },
+          { merge: true }
+        );
+
+        // Update the component's state with the new data
+        setData({
+          ...data,
+          queryResults: bigqueryData,
+          dateLastRun: currentDateTime,
+        });
+      } else {
+        console.log("No such document!");
+      }
+    } catch (error) {
+      console.error("Error re-querying data:", error);
+      // Handle error appropriately
+    }
+  };
 
   return (
-    <div>
-      <h1>Final Page</h1>
-      <h2>{reportName}'s Report</h2>{" "}
-      {/* Display the reportName from location.state */}
-      <h2>Query Results:</h2>
-      {/* Table for displaying results */}
-      {data.queryResults && data.queryResults.length > 0 ? (
-        <table className="report-table">
-          <thead>
-            <tr>
-              {/* Dynamically create table headers */}
-              {data.dimensions.map((dimension) => (
-                <th key={dimension}>{dimension}</th>
-              ))}
-              <th>{metricAliases[data.metric]}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.queryResults.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                {/* Dynamically render table cells */}
-                {data.dimensions.map((dimension) => (
-                  <td key={`${rowIndex}-${dimension}`}>{row[dimension]}</td>
-                ))}
-                <td>{row[metricAliases[data.metric]]}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p>{data.queryResults ? "No data found." : "Loading data..."}</p>
-      )}
+    <div className="enhancer-container">
+      <h1>{data.reportName}'s Report</h1>
+      <div style={{ position: "relative" }}>
+        <div className="date-container" style={{ position: "relative" }}>
+          <SearchBar onSearchSubmit={handleSearchSubmit} />
+
+          {/* Add the "Re-query" button */}
+          {/* <button className="filter-button">
+            {" "}
+            <i className="fa fa-filter" aria-hidden="true"></i> Filter
+          </button> */}
+          {/* <button className="edit-button"> Edit Report</button> */}
+        </div>
+        <div className="table-container" style={{ position: "relative" }}>
+          <TableRealtime rows={filteredReviews} columns={columns} />
+        </div>
+        <p>Last Updated: {data.dateLastRun}</p>
+        <button className="requery-button" onClick={handleRequery}>
+          Re-query
+        </button>{" "}
+      </div>
     </div>
   );
 };

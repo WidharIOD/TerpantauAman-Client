@@ -130,47 +130,204 @@
 
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
-import db from "../firebaseConfig"; // Assuming you have a firebase.js file for configuration
-import { EditOutlined } from "@ant-design/icons"; // Import the Edit icon
+import {
+  collection,
+  getDocs,
+  deleteDoc,
+  doc,
+  getDoc,
+  setDoc,
+} from "firebase/firestore";
+import { getAuth, signOut } from "firebase/auth"; // Import signOut
+import { db, auth } from "../firebaseConfig";
+import { EditOutlined } from "@ant-design/icons";
 import "../style/ConfirmationPage.css";
 
 const ConfirmationPage = () => {
   const navigate = useNavigate();
   const [reportList, setReportList] = useState([]);
-  const [selectedReports, setSelectedReports] = useState([]); // Track selected reports
-  const [selectAll, setSelectAll] = useState(false); // State for "Select All" checkbox
+  const [selectedReports, setSelectedReports] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const [companyName, setCompanyName] = useState(null); // State to store company name
+
+  const fetchCompanyName = async () => {
+    const user = getAuth().currentUser;
+    // console.log(user.uid);
+    if (user) {
+      try {
+        const userDocRef = doc(db, "users", user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          setCompanyName(userDocSnap.data().companyName);
+        } else {
+          console.log("User document not found!");
+        }
+      } catch (error) {
+        console.error("Error fetching company name:", error);
+      }
+    }
+  };
 
   useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "Live Report"));
-        const reports = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          reports.push({
-            id: doc.id, // Include the document ID
-            reportName: data.reportName,
-            timestamp: data.timestamp,
-            dateLastRun: data.dateLastRun,
-          });
-        });
-        setReportList(reports);
-      } catch (error) {
-        console.error("Error fetching reports from Firestore:", error);
-        // Handle error (e.g., display an error message)
-      }
-    };
-
     fetchReports();
-  }, [selectedReports]);
+    fetchCompanyName(); // Fetch company name when component mounts
+
+    // // Set up an interval to refresh reports every 5 minutes (adjust as needed)
+    // const intervalId = setInterval(async () => {
+    //   try {
+    //     const response = await fetch(
+    //       "http://localhost:3001/refresh-all-reports"
+    //     );
+    //     const data = await response.json();
+    //     console.log(data.message);
+
+    //     // Re-fetch the report list to show updated 'dateLastRun'
+    //     fetchReports();
+    //   } catch (error) {
+    //     console.error("Error refreshing reports:", error);
+    //   }
+    // }, 5 * 60 * 1000); // 5 minutes in milliseconds
+
+    // // Clean up the interval when the component unmounts
+    // return () => clearInterval(intervalId);
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate("/"); // Navigate to LoginPage after logout
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
+
+  const fetchReports = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, "Live Report"));
+      const reports = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        reports.push({
+          id: doc.id,
+          reportName: data.reportName,
+          timestamp: data.timestamp,
+          dateLastRun: data.dateLastRun,
+          resultId: data.resultId, // Include the resultId from "Live Report"
+          refreshTime: data.refreshTime,
+        });
+      });
+      setReportList(reports);
+      // Check if any reports need refreshing
+      // await refreshReportsIfNeeded(reports);
+    } catch (error) {
+      console.error("Error fetching reports from Firestore:", error);
+    }
+  };
+
+  // Function to refresh reports if needed
+  const refreshReportsIfNeeded = async (reports) => {
+    const currentTime = new Date();
+
+    // Set up an interval to check for refreshes every minute (adjust as needed)
+    const intervalId = setInterval(async () => {
+      const refreshPromises = reports.map(async (report) => {
+        if (report.refreshTime && typeof report.refreshTime === "string") {
+          const refreshTimeInMinutes = parseInt(
+            report.refreshTime.split(" ")[0]
+          );
+          console.log(refreshTimeInMinutes);
+          const timeDifference =
+            (currentTime - new Date(report.dateLastRun)) / (1000 * 60);
+
+          if (timeDifference > refreshTimeInMinutes) {
+            try {
+              // Fetch data from BigQuery
+              const bqResponse = await fetch(
+                "http://localhost:3001/query-bigquery",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    dimensions: report.dimensions,
+                    metric: report.metric,
+                    refreshTime: report.refreshTime,
+                  }),
+                }
+              );
+
+              const bigqueryData = await bqResponse.json();
+
+              const currentDateTime = new Date().toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false,
+              });
+
+              // Update "Report Result" with new results and timestamp
+              const resultDocRef = doc(db, "Report Result", report.resultId);
+              await setDoc(
+                resultDocRef,
+                {
+                  results: bigqueryData,
+                  timestamp: currentDateTime,
+                  dateLastRun: currentDateTime,
+                },
+                { merge: true }
+              );
+
+              // Update "Live Report" with new dateLastRun
+              const liveReportDocRef = doc(db, "Live Report", report.id);
+              await setDoc(
+                liveReportDocRef,
+                { dateLastRun: currentDateTime },
+                { merge: true }
+              );
+            } catch (error) {
+              console.error("Error refreshing report:", error);
+              // Handle error appropriately
+            }
+          }
+        } else {
+          console.warn("Invalid refreshTime for report:", report); // Log a warning for debugging
+        }
+      });
+
+      await Promise.all(refreshPromises);
+    }, 60 * 1000); // Check every minute
+    return () => clearInterval(intervalId);
+  };
+
+  const handleRefreshAll = async () => {
+    try {
+      const response = await fetch("http://localhost:3001/refresh-all-reports");
+      const data = await response.json();
+      console.log(data.message); // Log the success message
+
+      // Optionally, re-fetch the report list to show updated 'dateLastRun'
+      fetchReports();
+    } catch (error) {
+      console.error("Error refreshing reports:", error);
+      // Handle error appropriately (e.g., display an error message)
+    }
+  };
 
   const handleReportClick = (reportData) => {
-    navigate("/final", { state: reportData });
+    // navigate("/final", { state: reportData });
+    navigate("/final", {
+      state: {
+        reportId: reportData.id,
+        resultId: reportData.resultId,
+        reportName: reportData.reportName,
+      },
+    });
   };
 
   const handleAddReportClick = () => {
-    navigate("/section1"); // Navigate to Section1 to start the report creation flow
+    navigate("/section1");
   };
 
   // Handle checkbox changes
@@ -204,14 +361,27 @@ const ConfirmationPage = () => {
     if (
       !window.confirm("Are you sure you want to delete the selected reports?")
     ) {
-      return; // User cancelled
+      return;
     }
 
     try {
-      // Delete selected reports from Firestore
-      const deletePromises = selectedReports.map((reportId) =>
-        deleteDoc(doc(db, "Live Report", reportId))
-      );
+      // Delete selected reports and their associated results from Firestore
+      const deletePromises = selectedReports.map(async (reportId) => {
+        // 1. Get the resultId from the "Live Report" document
+        const liveReportDocRef = doc(db, "Live Report", reportId);
+        const liveReportDocSnap = await getDoc(liveReportDocRef);
+        const resultId = liveReportDocSnap.data().resultId;
+
+        // 2. Delete the "Live Report" document
+        await deleteDoc(liveReportDocRef);
+
+        // 3. Delete the corresponding "report_results" document
+        if (resultId) {
+          const resultDocRef = doc(db, "Report Result", resultId);
+          await deleteDoc(resultDocRef);
+        }
+      });
+
       await Promise.all(deletePromises);
 
       // Update the reportList state
@@ -219,27 +389,57 @@ const ConfirmationPage = () => {
         prevList.filter((report) => !selectedReports.includes(report.id))
       );
 
-      // Clear selectedReports
       setSelectedReports([]);
-
-      alert("Selected reports deleted successfully!");
+      alert("Selected reports and their results deleted successfully!");
     } catch (error) {
       console.error("Error deleting reports:", error);
       alert("Failed to delete reports. Please try again.");
     }
   };
 
-  const handleEditClick = (reportData) => {
-    // Navigate to the appropriate section for editing (e.g., Section1)
-    // You'll need to decide how you want to handle editing and pass the reportData
-    // navigate("/section1", { state: reportData }); // Example: Navigate to Section1 with the report data
-    navigate("/section1", { state: { ...reportData, isEditing: true } });
+  // const handleEditClick = (reportData) => {
+  //   // Navigate to the appropriate section for editing (e.g., Section1)
+  //   // You'll need to decide how you want to handle editing and pass the reportData
+  //   // navigate("/section1", { state: reportData }); // Example: Navigate to Section1 with the report data
+  //   navigate("/section1", { state: { ...reportData, isEditing: true } });
+  // };
+  const handleEditClick = (report) => {
+    // Fetch the corresponding "report_results" document
+    const fetchReportResults = async () => {
+      try {
+        const resultDocRef = doc(db, "Report Result", report.resultId);
+        const resultDocSnap = await getDoc(resultDocRef);
+
+        if (resultDocSnap.exists()) {
+          const resultData = resultDocSnap.data();
+          // Combine report data and results for editing
+          const completeReportData = { ...report, ...resultData };
+
+          // Navigate to Section1 with the complete report data and isEditing flag
+          navigate("/section1", {
+            state: { ...completeReportData, isEditing: true },
+          });
+        } else {
+          console.log("No results found for this report!");
+          // Handle the case where the results document doesn't exist
+        }
+      } catch (error) {
+        console.error("Error fetching report results:", error);
+        // Handle error appropriately
+      }
+    };
+
+    fetchReportResults();
   };
 
   return (
     <div>
-      <h1>Reports</h1>
+      <h1>{companyName}'s Reports</h1>
+      {/* {companyName && <p>Company: {companyName}</p>}{" "} */}
+      {/* Display company name if available */}
+      <button onClick={handleLogout}>Logout</button> {/* Add Logout button */}
       <button onClick={handleAddReportClick}>Add Report</button>{" "}
+      <button onClick={handleRefreshAll}>Refresh All Reports</button>
       {/* Add Report button */}
       {reportList.length > 0 ? (
         <table className="report-table">
@@ -253,6 +453,7 @@ const ConfirmationPage = () => {
                 />
               </th>{" "}
               <th>Report Name</th>
+              <th>Report ID</th>
               <th>Date Created</th>
               <th>Date Last Run</th>
               <th>Actions</th>
@@ -273,9 +474,21 @@ const ConfirmationPage = () => {
                   style={{ cursor: "pointer" }}
                 >
                   {" "}
-                  {/* Make report name clickable */}
-                  {report.reportName.replace(".json", "")}
+                  {/* Make report name clickable, check if reportName exists */}
+                  {report && report.reportName
+                    ? report.reportName.replace(".json", "")
+                    : ""}
                 </td>
+
+                <td
+                  onClick={() => handleReportClick(report)}
+                  style={{ cursor: "pointer" }}
+                >
+                  {" "}
+                  {/* Make report name clickable */}
+                  {report.id}
+                </td>
+
                 <td onClick={() => handleReportClick(report)}>
                   {" "}
                   {/* Make date created clickable */}

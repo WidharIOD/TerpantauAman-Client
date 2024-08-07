@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
-import db from "../firebaseConfig";
+import { db } from "../firebaseConfig";
 
 const Section2 = () => {
   const navigate = useNavigate();
@@ -10,21 +10,28 @@ const Section2 = () => {
   // Retrieve section1Values from previous step
   // const dimensions = location.state?.dimensions || [];
 
-  const { dimensions, isEditing, reportName } = location.state || {};
+  const {
+    dimensions,
+    isEditing,
+    id: reportId,
+    resultId: resultId,
+  } = location.state || {}; // Get reportId
 
   // State to manage the selected metric
   const [selectedMetric, setSelectedMetric] = useState(null);
 
+  console.log(resultId);
+
   useEffect(() => {
-    if (isEditing && reportName) {
+    if (isEditing && reportId) {
       const fetchData = async () => {
         try {
-          const docRef = doc(db, "Live Report", reportName);
+          const docRef = doc(db, "Live Report", reportId);
           const docSnap = await getDoc(docRef);
 
           if (docSnap.exists()) {
             const reportData = docSnap.data();
-            setSelectedMetric(reportData.metric || null);
+            setSelectedMetric(reportData.metric);
           } else {
             console.log("No such document!");
           }
@@ -35,7 +42,7 @@ const Section2 = () => {
 
       fetchData();
     }
-  }, [isEditing, reportName]);
+  }, [isEditing, reportId]); // Dependency array includes reportId
 
   // Handle radio button change
   const handleMetricChange = (event) => {
