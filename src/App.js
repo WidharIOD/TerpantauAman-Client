@@ -94,11 +94,41 @@ const App = () => {
     }
     return children;
   };
+  // Redirect to setup if project setup is not complete
+  const RedirectToSetup = ({ children }) => {
+    if (isLoading) {
+      return <div>Loading...</div>;
+    }
+    if (user && !isProjectSetupComplete(user)) {
+      // Check if project setup is done (you'll need to implement this function)
+      return <Navigate to="/setup" replace />;
+    }
+    return children;
+  };
+
+  // Placeholder function to check if project setup is complete
+  // You'll need to implement the actual logic based on your Firestore data
+  const isProjectSetupComplete = (user) => {
+    // Example: Check if a "project_setups" document exists for the user's UID
+    // You'll likely need to fetch this data from Firestore
+    return false; // Replace with your actual logic
+  };
+
+  // New component to handle redirection for authenticated users
+  const RedirectIfAuthenticated = ({ children }) => {
+    if (isLoading) {
+      return <div>Loading...</div>;
+    }
+    if (!user) {
+      return <Navigate to="/home" replace />;
+    }
+    return children;
+  };
 
   return (
     <Router>
       <div>
-        <nav>
+        {/* <nav>
           <ul>
             <li>
               <Link to="/">Home</Link>
@@ -119,7 +149,7 @@ const App = () => {
               </li>
             )}
           </ul>
-        </nav>
+        </nav> */}
 
         <Routes>
           <Route path="/" element={<LoginPage />} />
@@ -127,57 +157,57 @@ const App = () => {
           <Route
             path="/setup"
             element={
-              <ProtectedRoute>
+              <RedirectIfAuthenticated>
                 <ProjectSetupPage />
-              </ProtectedRoute>
+              </RedirectIfAuthenticated>
             }
           />
           <Route
             path="/home"
             element={
-              <ProtectedRoute>
+              <RedirectIfAuthenticated>
                 <ConfirmationPage />
-              </ProtectedRoute>
+              </RedirectIfAuthenticated>
             }
           />
           <Route
             path="/section1"
             element={
-              <ProtectedRoute>
+              <RedirectIfAuthenticated>
                 <Section1 />
-              </ProtectedRoute>
+              </RedirectIfAuthenticated>
             }
           />
           <Route
             path="/section2"
             element={
-              <ProtectedRoute>
+              <RedirectIfAuthenticated>
                 <Section2 />
-              </ProtectedRoute>
+              </RedirectIfAuthenticated>
             }
           />
           <Route
             path="/section3"
             element={
-              <ProtectedRoute>
+              <RedirectIfAuthenticated>
                 <Section3 />
-              </ProtectedRoute>
+              </RedirectIfAuthenticated>
             }
           />
           <Route
             path="/userinfo"
             element={
-              <ProtectedRoute>
+              <RedirectIfAuthenticated>
                 <UserInfoPage />
-              </ProtectedRoute>
+              </RedirectIfAuthenticated>
             }
           />
           <Route
             path="/final"
             element={
-              <ProtectedRoute>
+              <RedirectIfAuthenticated>
                 <FinalPage />
-              </ProtectedRoute>
+              </RedirectIfAuthenticated>
             }
           />
           {/* ... other routes, also wrap them in ProtectedRoute if needed ... */}

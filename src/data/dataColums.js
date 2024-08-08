@@ -88,7 +88,7 @@ const DataColumns = [
     sortable: false,
   },
   {
-    id: "session_source_medium",
+    id: "session source/medium",
     label: "Session Source Medium",
     icon: "fas fa-map-marker-alt",
     Width: 120,
@@ -104,7 +104,7 @@ const DataColumns = [
     sortable: true,
   },
   {
-    id: "revenue",
+    id: "total_revenue",
     label: "Revenue",
     icon: "fas fa-map-marker-alt",
     Width: 120,
@@ -120,7 +120,7 @@ const DataColumns = [
     sortable: true,
   },
   {
-    id: "views",
+    id: "total_views",
     label: "Views",
     icon: "fas fa-map-marker-alt",
     Width: 120,

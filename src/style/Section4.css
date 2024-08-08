@@ -1,0 +1,64 @@
+.container {
+    max-width: 600px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .title {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  .form-group {
+    margin-bottom: 20px;
+  }
+  
+  .form-group label {
+    font-size: 20px;
+    font-weight:600;
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  .report-name-input {
+    width: 100%; 
+    padding: 2px;
+    font-size: 16px;
+  }
+  
+  .summary {
+    margin-bottom: 20px;
+  }
+  
+  .summary h4 {
+    font-size: 20px; /* Adjust the font size as needed */
+    margin-bottom: 10px;
+  }
+  
+  .summary ul {
+    list-style-type: disc;
+    padding-left: 20px;
+  }
+  
+  .submit-button-container {
+    text-align: center;
+  }
+  
+  .submit-button {
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #000000;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .submit-button:disabled {
+    background-color: #0a002b;
+    cursor: not-allowed;
+  }
+  

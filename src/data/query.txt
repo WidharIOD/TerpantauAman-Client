@@ -1,0 +1,37 @@
+SELECT 
+event_name,
+platform,
+geo.city,
+(select value.string_value from unnest(event_params) where key = 'page_location') as page_path,
+    case
+    when (traffic_source.source is null or traffic_source.source = '(direct)') and (traffic_source.medium is null or traffic_source.medium in ('(not set)', '(none)')) then 'Direct'
+    when traffic_source.name like '%cross-network%' then 'Cross-network'
+    when (regexp_contains(traffic_source.source,'alibaba|amazon|google shopping|shopify|etsy|ebay|stripe|walmart')
+    or regexp_contains(traffic_source.name, '^(.*(([^a-df-z]|^)shop|shopping).*)$'))
+  and regexp_contains(traffic_source.medium, '^(.*cp.*|ppc|retargeting|paid.*)$') then 'Paid Shopping'
+    when regexp_contains(traffic_source.source,'baidu|bing|duckduckgo|ecosia|google|yahoo|yandex') and regexp_contains(traffic_source.medium,'^(.*cp.*|ppc|retargeting|paid.*)$') then 'Paid Search'
+    when regexp_contains(traffic_source.source,'badoo|facebook|fb|instagram|linkedin|pinterest|tiktok|twitter|whatsapp')
+  and regexp_contains(traffic_source.medium,'^(.*cp.*|ppc|retargeting|paid.*)$') then 'Paid Social'
+    when regexp_contains(traffic_source.source,'dailymotion|disneyplus|netflix|youtube|vimeo|twitch|vimeo|youtube') and regexp_contains(traffic_source.medium,'^(.*cp.*|ppc|retargeting|paid.*)$') then 'Paid Video'
+    when traffic_source.medium in ('display','banner','expandable','interstitial','cpm') then 'Display'
+    when regexp_contains(traffic_source.medium,'^(.*cp.*|ppc|retargeting|paid.*)$') then 'Paid Other'
+    when regexp_contains(traffic_source.source,'alibaba|amazon|google shopping|shopify|etsy|ebay|stripe|walmart') or regexp_contains(traffic_source.name, '^(.*(([^a-df-z]|^)shop|shopping).*)$') then 'Organic Shopping'
+    when regexp_contains(traffic_source.source,'badoo|facebook|fb|instagram|linkedin|pinterest|tiktok|twitter|whatsapp') or traffic_source.medium in ('social','social-network','social-media','sm','social network','social media') then 'Organic Social'
+    when regexp_contains(traffic_source.source,'dailymotion|disneyplus|netflix|youtube|vimeo|twitch|vimeo|youtube') or regexp_contains(traffic_source.medium,'^(.*video.*)$') then 'Organic Video'
+    when regexp_contains(traffic_source.source,'baidu|bing|duckduckgo|ecosia|google|yahoo|yandex') or traffic_source.medium = 'organic' then 'Organic Search'
+    when traffic_source.medium in ('referral','app','link') then 'Referral'
+    when regexp_contains(traffic_source.source,'email|e-mail|e_mail|e mail') or regexp_contains(traffic_source.medium,'email|e-mail|e_mail|e mail') then 'Email'
+    when traffic_source.medium = 'affiliate' then 'Affiliates'
+    when traffic_source.medium = 'audio' then 'Audio'
+    when traffic_source.source = 'sms' or traffic_source.medium = 'sms' then 'SMS'
+    when traffic_source.medium like '%push' or regexp_contains(traffic_source.medium,'mobile|notification') or traffic_source.source = 'firebase' then 'mobile push notifications'
+    else 'Unassigned'
+end
+  as channel_grouping_user,
+concat(traffic_source.source,' / ', traffic_source.medium) as session_source_medium,
+count(distinct user_pseudo_id) as total_users,
+sum(ecommerce.purchase_revenue) as purchase_revenue,
+count(*) as total_events,
+countif(event_name = 'page_view' OR event_name = 'screen_view'  ) as views
+FROM `testingtracker-2d31c.analytics_387519606.events_intraday_*` 
+GROUP BY event_name, platform, geo.city, page_path, session_source_medium, channel_grouping_user
